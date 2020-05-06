@@ -1,0 +1,43 @@
+sudo: required
+
+services:
+    - docker
+
+#before installation steps... Build test version of client and do some test
+before_install:
+    #we get access to test suite when we have all dependeinceis attached
+    #prod dokcerfile would copy over only the raw production assets 
+    #prod dockerfile won't allow us to run any test therefore we use dev dockerfile
+    - docker build -t anish16/react-test -f ./client/Dockerfile.dev ./client #look into client dir
+    # to get build context
+
+    #if you had other project or any project to run it on
+   # - docker build myotherproject
+
+script:
+    #- docker run myotherproject runmytest
+    - docker run anish16/react-test npm test -- --coverage #make sure test script exist if test failed
+
+after_success:
+    #multi-client is name of the image for client 
+    #go through each of the subfolder and build images for prod version of file 
+    - docker build -t anish16/multi-client ./client
+    - docker build -t anish16/multi-nginx ./nginx
+    - docker build -t anish16/multi-server ./server  
+    - docker build -t anish16/multi-worker ./worker
+
+    #log into the docker cli
+    #use encrypted variable which can be available only thoguh travis-ci 
+    #entire login step in one cmd. echo dockerpassowrd will retrive docker password and add into stdin
+    #to input of next command so, other side of the pipe. Then we run docker login cmd and pwd can be 
+    #achieved from dockerpassword command
+
+    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_ID" --password-stdin
+
+    #take those images and push them to docker hub
+    - docker push anish16/multi-client
+    - docker push anish16/multi-nginx
+    - docker push anish16/multi-server
+    - docker push anish16/multi-worker
+
+
